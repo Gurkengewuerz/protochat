@@ -1,0 +1,147 @@
+.container {
+  width: 100%
+}
+
+@media (min-width: 576px) {
+  .container {
+    max-width: 576px
+  }
+}
+
+@media (min-width: 768px) {
+  .container {
+    max-width: 768px
+  }
+}
+
+@media (min-width: 992px) {
+  .container {
+    max-width: 992px
+  }
+}
+
+@media (min-width: 1200px) {
+  .container {
+    max-width: 1200px
+  }
+}
+
+@media (min-width: 576px) {
+  .sm\:container {
+    width: 100%
+  }
+
+  @media (min-width: 576px) {
+    .sm\:container {
+      max-width: 576px
+    }
+  }
+
+  @media (min-width: 768px) {
+    .sm\:container {
+      max-width: 768px
+    }
+  }
+
+  @media (min-width: 992px) {
+    .sm\:container {
+      max-width: 992px
+    }
+  }
+
+  @media (min-width: 1200px) {
+    .sm\:container {
+      max-width: 1200px
+    }
+  }
+}
+
+@media (min-width: 768px) {
+  .md\:container {
+    width: 100%
+  }
+
+  @media (min-width: 576px) {
+    .md\:container {
+      max-width: 576px
+    }
+  }
+
+  @media (min-width: 768px) {
+    .md\:container {
+      max-width: 768px
+    }
+  }
+
+  @media (min-width: 992px) {
+    .md\:container {
+      max-width: 992px
+    }
+  }
+
+  @media (min-width: 1200px) {
+    .md\:container {
+      max-width: 1200px
+    }
+  }
+}
+
+@media (min-width: 992px) {
+  .lg\:container {
+    width: 100%
+  }
+
+  @media (min-width: 576px) {
+    .lg\:container {
+      max-width: 576px
+    }
+  }
+
+  @media (min-width: 768px) {
+    .lg\:container {
+      max-width: 768px
+    }
+  }
+
+  @media (min-width: 992px) {
+    .lg\:container {
+      max-width: 992px
+    }
+  }
+
+  @media (min-width: 1200px) {
+    .lg\:container {
+      max-width: 1200px
+    }
+  }
+}
+
+@media (min-width: 1200px) {
+  .xl\:container {
+    width: 100%
+  }
+
+  @media (min-width: 576px) {
+    .xl\:container {
+      max-width: 576px
+    }
+  }
+
+  @media (min-width: 768px) {
+    .xl\:container {
+      max-width: 768px
+    }
+  }
+
+  @media (min-width: 992px) {
+    .xl\:container {
+      max-width: 992px
+    }
+  }
+
+  @media (min-width: 1200px) {
+    .xl\:container {
+      max-width: 1200px
+    }
+  }
+}

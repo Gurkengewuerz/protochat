@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Protochat</string>
+    <string name="title_activity_main">Protochat</string>
+    <string name="package_name">de.mc8051.protochat</string>
+    <string name="custom_url_scheme">de.mc8051.protochat</string>
+</resources>

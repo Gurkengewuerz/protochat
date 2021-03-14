@@ -1,0 +1,7 @@
+{
+  "name": "Protochat",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react"
+}

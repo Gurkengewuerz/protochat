@@ -1,0 +1,24 @@
+.reveals-main {
+  position: relative;
+}
+.reveals-main > div {
+  position: absolute;
+  overflow: hidden;
+  width: 100%;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--ion-color-dark, #c7ceff);
+  border-radius: 15px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ion-color-dark-tint, #f9d4ff);
+}
+::-webkit-scrollbar-track {
+  background: var(--ion-color-light, #ffffff);
+  border-radius: 8px;
+}

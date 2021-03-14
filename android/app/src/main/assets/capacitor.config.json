@@ -1,0 +1,14 @@
+{
+  "appId": "de.mc8051.protochat",
+  "appName": "Protochat",
+  "bundledWebRuntime": false,
+  "npmClient": "npm",
+  "webDir": "build",
+  "plugins": {
+    "SplashScreen": {
+      "androidScaleType": "CENTER_CROP"
+    }
+  },
+  "cordova": {},
+  "windowsAndroidStudioPath": "D:\\Users\\nikla\\AppData\\Local\\JetBrains\\Toolbox\\apps\\AndroidStudio\\ch-0\\201.7042882\\bin\\studio64.exe"
+}
