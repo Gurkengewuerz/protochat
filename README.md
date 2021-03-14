@@ -11,18 +11,16 @@ Protochat is a multi-platform Matrix client written in JavaScript with the Ionic
 # How to build
 
 1. [Install NodJS and NPM](https://nodejs.org/)
-
 2. Clone the repo:
 ```
 git clone --recurse-submodules https://github.com/Gurkengewuerz/protochat
 cd protochat
 ```
 
+3. Install dependencies `npm install`
+3. Build the tailwind css files with `npm run build:css`
 3. Build the `bunde.js` with `npm run build`
-
 4. Sync the builded files to iOS/Android `npm run ionic:sync`
-
 5. Build the native apps with `ionic cap build --no-build --no-open`
-
 6. Debug with: `npm run start`
 
