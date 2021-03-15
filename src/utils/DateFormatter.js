@@ -2,11 +2,10 @@ import moment from "moment";
 
 const DateFormatter = {
   chatOverview: utc => {
-    const relative = moment(utc);
+    const relative = moment.unix(utc / 1000);
     const now = moment();
     const yesterday = now.clone().subtract(1, "days").startOf("day");
-    const nowUnix = moment().utc().unix();
-    console.log(relative.format(), yesterday.format(), relative.isSame(now, "d"));
+    const nowUnix = now.utc().unix();
     if (relative.isSame(now, "d")) return relative.format("HH:mm");
     if (relative.isSame(yesterday, "d")) return "Yesterday";
     if (nowUnix - utc <= 7 * 24 * 60 * 1000) return relative.format("ddd");
@@ -21,10 +20,10 @@ const DateFormatter = {
     */
   },
   message: utc => {
-    const relative = moment(utc);
+    const relative = moment.unix(utc / 1000);
     const now = moment();
     const yesterday = now.clone().subtract(1, "days").startOf("day");
-    const nowUnix = moment().utc().unix();
+    const nowUnix = now.utc().unix();
 
     if (relative.isSame(now, "d")) return relative.format("HH:mm");
     if (relative.isSame(yesterday, "d")) return "Yesterday, " + relative.format("HH:mm");
@@ -33,7 +32,7 @@ const DateFormatter = {
     return relative.format("DD.MM.YYYY HH:mm:ss");
   },
   full: utc => {
-    const relative = moment(utc);
+    const relative = moment.unix(utc / 1000);
     return relative.format("DD.MM.YYYY HH:mm:ss");
   },
 };

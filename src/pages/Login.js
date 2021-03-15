@@ -9,7 +9,7 @@ import {IonContent, IonPage, IonIcon, IonAlert} from "@ionic/react";
 
 import {Plugins, Capacitor} from "@capacitor/core";
 
-import Config from "../AppConfig";
+import AppConfig from "../AppConfig";
 import logo from "../assets/logo.png";
 import AboutAlert from "../components/AboutAlert";
 import Button from "../components/Button";
@@ -189,7 +189,7 @@ const Login = () => {
         response.username = username;
         saveSessionData(response);
         client.initCrypto();
-        client.startClient();
+        client.startClient({pollTimeout: AppConfig.clientTimeout});
         history.replace("/overview");
       })
       .catch(err => {
@@ -344,7 +344,7 @@ const Login = () => {
               <button onClick={() => setShowAlert(!showAlert)}>About</button>
               <button
                 onClick={() => {
-                  window.open(Config.privacyURL, "_system", "location=yes");
+                  window.open(AppConfig.privacyURL, "_system", "location=yes");
                   return false;
                 }}>
                 Privacy

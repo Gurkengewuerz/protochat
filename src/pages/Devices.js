@@ -72,7 +72,7 @@ const Devices = () => {
   };
 
   return (
-    <Base icon={close} title="Devices">
+    <Base icon={close} title="Devices" parentPage="/settings">
       {devices.map(device => {
         return (
           <Device key={device.device_id} displayName={device.display_name} deviceID={device.device_id} ts={device.last_seen_ts} verified={device.verified} />

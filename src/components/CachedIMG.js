@@ -11,7 +11,7 @@ const CachedIMG = ({src, fetchSrc, alt, className, cacheTime, imgRef, rerender})
   if (cacheTime === undefined || cacheTime === null) cacheTime = 7 * 24 * 60 * 60 * 1000;
 
   const now = moment().utc().unix();
-  const folder = FilesystemDirectory.Data;
+  const folder = FilesystemDirectory.Cache;
   const supportsCaching = ["ios", "android"].includes(Capacitor.platform);
   const [finalSrc, setFinalSrc] = useState(src);
 

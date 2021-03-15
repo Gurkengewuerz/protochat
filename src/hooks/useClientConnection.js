@@ -37,6 +37,7 @@ const useClientConnection = () => {
       console.error("indexeddbWorkerScript is missing!");
     }
 
+    // TODO: Write own Storage implementation to use native Storage
     const appName = AppConfig.name.toLocaleLowerCase().replace(" ", "");
     const db = new Matrix.IndexedDBStore({
       indexedDB: window.indexedDB,
@@ -64,6 +65,7 @@ const useClientConnection = () => {
       });
 
       client.on("sync", (state, prevState, data) => {
+        // TODO: add currentUser to Context => Object with prefetched data like userID, name, avatar etc
         switch (state) {
           case "PREPARED":
             setIsConnected(true);

@@ -15,15 +15,17 @@ import "@ionic/react/css/typography.css";
 
 import {Plugins} from "@capacitor/core";
 
+import AppConfig from "./AppConfig";
 import UserConfig from "./UserConfig";
 import AlertTemplate from "./components/AlertTemplate";
 import ClientConnection from "./context/Client";
 import useClientConnection from "./hooks/useClientConnection";
+import Archive from "./pages/Archive";
 import Chat from "./pages/Chat";
 import ChatOverview from "./pages/ChatOverview";
+import Devices from "./pages/Devices";
 import Login from "./pages/Login";
 import Settings from "./pages/Settings";
-import Devices from "./pages/Devices";
 import "./tailwindcss/base.css";
 import "./tailwindcss/components.css";
 
@@ -138,7 +140,7 @@ const App = () => {
     if (clientConnector.client !== null && Object.keys(storageData).length > 0) {
       setStorageData("");
       clientConnector.client.initCrypto();
-      clientConnector.client.startClient();
+      clientConnector.client.startClient({pollTimeout: AppConfig.clientTimeout, includeArchivedRooms: true});
       if (clientConnector.client.isLoggedIn()) {
         console.log("user already logged in");
         setLoggedin("true");
@@ -163,6 +165,9 @@ const App = () => {
             </Route>
             <Route exact path="/devices">
               <Devices />
+            </Route>
+            <Route exact path="/archive">
+              <Archive />
             </Route>
             <Route path="/chat/:id">
               <Chat />

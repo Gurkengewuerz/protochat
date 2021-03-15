@@ -7,18 +7,14 @@ import {useSpring, animated} from "react-spring";
 import {IonContent, IonPage} from "@ionic/react";
 import {IonIcon} from "@ionic/react";
 
-import {Plugins} from "@capacitor/core";
-
 import Config from "../AppConfig";
-import CachedIMG from "../components/CachedIMG";
+import Rooms from "../components/Rooms";
 import ClientConnection from "../context/Client";
 import useOutsideClick from "../hooks/useOutsideClick";
-import DateFormatter from "../utils/DateFormatter";
-
-const {Storage} = Plugins;
 
 const ChatOverview = () => {
   const {connect, client, disconnect, isConnected} = useContext(ClientConnection);
+  var initialized = false;
   const dropDownRef = useRef();
   const history = useHistory();
   const [rooms, setRooms] = useState([]);
@@ -30,84 +26,13 @@ const ChatOverview = () => {
   });
 
   const updateRooms = async () => {
-    let rooms = client.getRooms();
-    rooms.sort(function (a, b) {
-      // < 0 = a comes first (lower index) - we want high indexes = newer
-      var aMsg = a.timeline[a.timeline.length - 1];
-      if (!aMsg) {
-        return -1;
-      }
-      var bMsg = b.timeline[b.timeline.length - 1];
-      if (!bMsg) {
-        return 1;
-      }
-      if (aMsg.getTs() > bMsg.getTs()) {
-        return -1;
-      } else if (aMsg.getTs() < bMsg.getTs()) {
-        return 1;
-      }
-      return 0;
-    });
-
-    let roomMeta = [];
-    rooms.forEach(room => {
-      console.log(room);
-      let isWriting = false;
-      let lastMessage = "";
-      const isGroup = room.currentState.getMembers() > 2;
-
-      let otherUser = undefined;
-      if (!isGroup) {
-        room.currentState.getMembers().forEach(user => {
-          if (isWriting) return;
-          if (user.userId == client.getUserId()) return;
-          isWriting = user.typing;
-          otherUser = user;
-        });
-      }
-
-      const ENCRYPTED = <div className="italic">Encrypted</div>;
-      room.timeline
-        .slice()
-        .reverse()
-        .forEach(msg => {
-          if (lastMessage !== "") return;
-          if (msg.getType() === "m.room.encrypted") {
-            lastMessage = ENCRYPTED;
-            return;
-          }
-          if (msg.getType() !== "m.room.message") return;
-
-          const roomMessageType = msg.getContent().msgtype;
-          if (roomMessageType === "m.image") lastMessage = "Image";
-          else if (roomMessageType === "m.file") lastMessage = "Document";
-          else if (roomMessageType === "m.audio") lastMessage = "Audio";
-          else if (roomMessageType === "m.location") lastMessage = "Location";
-          else if (roomMessageType === "m.video") lastMessage = "Video";
-          else if (roomMessageType === "m.bad.encrypted") lastMessage = ENCRYPTED;
-          else lastMessage = msg.getContent().body;
-        });
-
-      roomMeta.push({
-        count: room.getUnreadNotificationCount(),
-        id: room.roomId,
-        name: room.name,
-        modified: room.getLastActiveTimestamp(),
-        invite: room._selfMembership === "invite" ? room.getDMInviter() : "",
-        isWriting,
-        isGroup,
-        lastMessage,
-        getAvatar: async () => {
-          if (client === null) return;
-          const desiredHeight = 256;
-          const desiredWidth = 256;
-
-          const avatarData = await (isGroup ? room : otherUser).getAvatarUrl(client.getHomeserverUrl(), desiredHeight, desiredWidth, "scale", false);
-          return avatarData;
-        },
-      });
-    });
-    setRooms(roomMeta);
+    if (!initialized) return;
+    client.stopPeeking();
+    setRooms(
+      client.getVisibleRooms().filter(room => {
+        return !room.hasMembershipState(client.getUserId(), "leave");
+      })
+    );
   };
 
   useCustomEventListener("roomUpdate", () => {
@@ -127,7 +52,10 @@ const ChatOverview = () => {
   });
 
   useEffect(() => {
-    if (isConnected) updateRooms();
+    if (isConnected) {
+      initialized = true;
+      updateRooms();
+    }
   }, [isConnected]);
 
   useOutsideClick(dropDownRef, () => {
@@ -219,52 +147,7 @@ const ChatOverview = () => {
 
           <div className="relative mb-4 overflow-x-hidden h-full">
             {rooms.length == 0 && <StartChat />}
-            <ul className="flex flex-col inline-block w-full select-none">
-              {rooms.map((room, i) => {
-                return (
-                  <div key={`chat-${room.id}`}>
-                    <li className="flex flex-no-wrap items-center pr-3 text-dark-default cursor-pointer hover:bg-light-tint">
-                      <div className="flex justify-between w-full focus:outline-none">
-                        <div className="flex justify-between w-full my-2">
-                          <div className="relative flex items-center ml-2 mr-3 text-xl font-semibold text-dark-default rounded-full flex-no-shrink">
-                            <CachedIMG
-                              className="object-cover w-12 h-12 rounded-full bg-primary-default"
-                              src="/assets/icon/user.png"
-                              fetchSrc={room.getAvatar}
-                              alt="avatar"
-                            />
-                          </div>
-                          <div
-                            className="items-center flex-1 min-w-0"
-                            onClick={() => {
-                              /// TODO: join room first if is invite
-                              history.push(`/chat/${room.id}`);
-                            }}>
-                            <div className="flex justify-between mb-1 h-3/6">
-                              <h2 className="text-sm font-semibold text-dark-default">{room.name}</h2>
-                              <div className="flex">
-                                <span className="mt-1 text-xs font-medium text-dark-shade">
-                                  {room.modified > 0 ? DateFormatter.chatOverview(room.modified) : ""}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex justify-between text-sm leading-none truncate">
-                              <span>{room.invite ? `${room.invite} invited you` : room.isWriting ? `Writing...` : room.lastMessage}</span>
-                              {room.count > 0 && (
-                                <span className="flex items-center justify-center w-5 h-5 text-xs text-right text-primary-contrast bg-primary-default rounded-full">
-                                  {room.count}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </li>
-                    {rooms.length !== i + 1 && <hr className="mx-7 opacity-30 bg-light-tint"></hr>}
-                  </div>
-                );
-              })}
-            </ul>
+            <Rooms list={rooms} onJoin={updateRooms} onDelete={updateRooms} />
           </div>
           <div className="fixed absolute bottom-0 right-0 z-40 mb-6 mr-4">
             <button className="flex items-center justify-center w-12 h-12 mr-3 text-xl font-semibold text-primary-contrast bg-primary-default rounded-full focus:outline-none flex-no-shrink">

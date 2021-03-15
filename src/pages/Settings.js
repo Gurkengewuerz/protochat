@@ -97,7 +97,7 @@ const Chat = () => {
     try {
       const image = await Camera.getPhoto({
         quality: 80,
-        allowEditing: true,
+        allowEditing: false,
         resultType: CameraResultType.Uri,
         source: CameraSource.Prompt,
         direction: CameraDirection.Front,
@@ -258,14 +258,14 @@ const Chat = () => {
             )}
           </div>
         </div>
-        {["string"].includes(typeof value) && <div className="w-full opacity-50 -mt-4">{value}</div>}
+        {["string"].includes(typeof value) && <div className="w-full opacity-50 -mt-3">{value}</div>}
       </button>
     );
   };
 
   return (
     <>
-      <Base title="Settings" icon={arrowBackSharp} absolute={true} transparent={transparentHeader} onScroll={onScroll}>
+      <Base title="Settings" icon={arrowBackSharp} absolute={true} transparent={transparentHeader} onScroll={onScroll} parentPage="/overview">
         <div className="m-auto h-80 my-2 relative">
           <CachedIMG className="h-full m-auto" src="/assets/icon/user.png" fetchSrc={getAvatarURL} alt="avatar" imgRef={imgRef} rerender={avatarURL} />
           <button
@@ -283,46 +283,25 @@ const Chat = () => {
         <Spacer />
 
         <Heading>Chat</Heading>
-        <SettingButton
-          onClick={() => {
-            updateValue("formatMessage");
-          }}
-          value={userSetting.formatMessage}>
+        <SettingButton onClick={() => updateValue("formatMessage")} value={userSetting.formatMessage}>
           Format messages
         </SettingButton>
-        <SettingButton
-          onClick={() => {
-            updateValue("showDeleted");
-          }}
-          value={userSetting.showDeleted}>
+        <SettingButton onClick={() => updateValue("showDeleted")} value={userSetting.showDeleted}>
           Show deleted messages
         </SettingButton>
-        <SettingButton
-          onClick={() => {
-            updateValue("hideUnknownEvents");
-          }}
-          value={userSetting.hideUnknownEvents}>
+        <SettingButton onClick={() => updateValue("hideUnknownEvents")} value={userSetting.hideUnknownEvents}>
           Hide unknown types
         </SettingButton>
-        <SettingButton onClick={() => {}} icon={archive}>
+        <SettingButton onClick={() => history.push("/archive")} icon={archive}>
           Archive
         </SettingButton>
 
         <Spacer />
         <Heading>Account</Heading>
-        <SettingButton
-          onClick={() => {
-            setChangeDisplayname(true);
-          }}
-          icon={happy}
-          value={displayname}>
+        <SettingButton onClick={() => setChangeDisplayname(true)} icon={happy} value={displayname}>
           Change displayname
         </SettingButton>
-        <SettingButton
-          onClick={() => {
-            history.push("/devices");
-          }}
-          icon={desktop}>
+        <SettingButton onClick={() => history.push("/devices")} icon={desktop}>
           Devices
         </SettingButton>
         <SettingButton onClick={() => {}} icon={ban}>
@@ -369,36 +348,28 @@ const Chat = () => {
           value={userSetting.analytics}>
           Allow analytics
         </SettingButton>
-        <SettingButton
-          onClick={() => {
-            updateValue("errorTracking");
-          }}
-          value={userSetting.errorTracking}>
+        <SettingButton onClick={() => updateValue("errorTracking")} value={userSetting.errorTracking}>
           Allow error tracking
         </SettingButton>
         <SettingButton
-          onClick={() => {
+          onClick={() =>
             Browser.open({
               url: AppConfig.gitRepo,
-            });
-          }}
+            })
+          }
           icon={helpCircle}>
           Help
         </SettingButton>
         <SettingButton
-          onClick={() => {
+          onClick={() =>
             Browser.open({
               url: AppConfig.privacyURL,
-            });
-          }}
+            })
+          }
           icon={shieldHalf}>
           Privacy
         </SettingButton>
-        <SettingButton
-          onClick={() => {
-            setAboutVisible(true);
-          }}
-          icon={informationCircle}>
+        <SettingButton onClick={() => setAboutVisible(true)} icon={informationCircle}>
           About
         </SettingButton>
       </Base>

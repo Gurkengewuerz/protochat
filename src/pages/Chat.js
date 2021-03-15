@@ -1,11 +1,16 @@
-import {arrowBackSharp, search, ellipsisVertical, sendSharp} from "ionicons/icons";
+import {arrowBackSharp, search, refresh} from "ionicons/icons";
+import moment from "moment";
 import React, {useState, useEffect, useContext, useRef} from "react";
+import {useAlert} from "react-alert";
 import {useCustomEventListener} from "react-custom-events";
-import InfiniteScroll from "react-infinite-scroller";
 import {useHistory, useParams} from "react-router-dom";
+import ScrollToBottom, {useScrollToBottom, useSticky} from "react-scroll-to-bottom";
+import useInfiniteScroll from "react-use-infinite-loading";
 
 import {IonContent, IonPage, IonIcon} from "@ionic/react";
 
+import AppConfig from "../AppConfig";
+import CachedIMG from "../components/CachedIMG";
 import ClientConnection from "../context/Client";
 import DateFormatter from "../utils/DateFormatter";
 
@@ -26,18 +31,25 @@ const SubHeader = ({isGroup, isOnline, typing}) => {
 const Chat = () => {
   const {id} = useParams();
   const history = useHistory();
+  const alert = useAlert();
+
+  // TODO: implement ScrollToBottom
 
   const [name, setName] = useState([]);
   const [messages, setMessages] = useState([]);
   const [members, setMembers] = useState({});
   const [isGroup, setIsGroup] = useState(false); // memebers > 2
   const [isOnline, setIsOnline] = useState(false); // m.presence
+  const [firstInit, setFirstInit] = useState();
   const [typing, setTyping] = useState([]); // m.typing
+
+  const [avatarURL, setAvatarURL] = useState(undefined);
 
   const {connect, client, disconnect, isConnected} = useContext(ClientConnection);
 
   useEffect(() => {
     const x = async () => {
+      if (client === null) return;
       if (!id || id === "") {
         console.log("chat room id unknown");
         history.replace("/overview");
@@ -55,14 +67,21 @@ const Chat = () => {
 
       let typingList = [];
       let memberList = {};
+      let otherUser = {};
       room.currentState.getMembers().forEach(member => {
         if (member.typing) typingList.push(member.userId);
+        if (member.userId === client.getUserId()) return;
+        otherUser = member;
         memberList[member.userId] = member.rawDisplayName;
       });
-      setIsGroup(room.currentState.getMembers() > 2);
+      const isGroup = room.currentState.getMembers() > 2;
+      setIsGroup(isGroup);
       setMessages([...room.timeline]);
       setName(room.name);
       setMembers(memberList);
+      setAvatarURL(
+        await (isGroup ? room : otherUser).getAvatarUrl(client.getHomeserverUrl(), AppConfig.avatarHeight, AppConfig.avatarWidth, AppConfig.avatarType, false)
+      );
     };
 
     if (isConnected) x();
@@ -77,22 +96,54 @@ const Chat = () => {
   });
 
   useCustomEventListener("message", data => {
+    if (!name) return;
     let copy = [...messages];
     if (data.event.getRoomId() !== id) return;
     copy.push(data.event);
     setMessages(copy);
   });
 
-  const fetchMessages = async page => {
-    console.log("fetchMessages");
-    const room = client.getRoom(id);
-    if (room === null) {
-      return;
-    }
-    // client.scrollback(room, 50).then((data) => {
-    //   setMessages([...room.timeline]);
-    // });
+  const getAvatarURL = async () => {
+    return avatarURL;
   };
+
+  const fetchMessages = page =>
+    new Promise(async resolve => {
+      if (client === null || !firstInit || moment().unix() - firstInit.unix() <= 2) {
+        resolve();
+        return;
+      }
+
+      const room = client.getRoom(id);
+      if (room === null) {
+        resolve();
+        return;
+      }
+      client.scrollback(room, 5, (err, newRoom) => {
+        if (err === null) {
+          setMessages([...newRoom.timeline]);
+          resolve();
+          return;
+        }
+        resolve();
+        alert.show(err.message, {
+          type: "error",
+        });
+      });
+    });
+
+  const [ref, containerRef, isLoading] = useInfiniteScroll({
+    hasMore: true, // if server-side has more items for us
+    offset: 100, // send request 100px before the end of scrolling container
+    direction: "bottom", // scroll direction
+    callback: fetchMessages, // api request
+  });
+
+  useEffect(() => {
+    if (firstInit) return;
+    if (messages.length === 0) return;
+    setFirstInit(moment());
+  }, [messages]);
 
   const printMessage = (data, firstInit = true) => {
     const type = data.getType().toLowerCase();
@@ -115,8 +166,7 @@ const Chat = () => {
         systemMessage = `${sender} changed the join rules to ${state}`;
         break;
       case "m.room.member":
-        if (content.avatar_url) systemMessage = `${sender} changed his profile picture`;
-        else if (content.membership === "invite") systemMessage = `${sender} invited ${content.displayname}`;
+        if (content.membership === "invite") systemMessage = `${sender} invited ${content.displayname}`;
         else if (content.membership === "join") systemMessage = `${sender} joined this room`;
         else if (content.membership === "leave") systemMessage = `${sender} left this room`;
         else if (content.membership === "ban") systemMessage = `${sender} banned ${content.displayname}`;
@@ -155,7 +205,7 @@ const Chat = () => {
             break;
         }
         return (
-          <div key={data.getId()} className={"min-w-min max-w-sm my-2 " + (isMe ? "self-end" : "self-start")}>
+          <div className={"min-w-min max-w-sm my-2 " + (isMe ? "self-end" : "self-start")}>
             <div
               className={"p-4 text-sm rounded-t-lg shadow border-light-shade bg-light-default text-dark-default " + (isMe ? "rounded-l-lg" : "rounded-r-lg")}>
               <div className="flex">
@@ -169,9 +219,7 @@ const Chat = () => {
     }
 
     return (
-      <div
-        key={data.getId()}
-        className="self-center px-2 py-1 text-sm border border-light-shade bg-light-default text-dark-default rounded-full shadow rounded-tg m-auto max-w-max mt-1">
+      <div className="self-center px-2 py-1 text-sm border border-light-shade bg-light-default text-dark-default rounded-full shadow rounded-tg m-auto max-w-max mt-1">
         {systemMessage || type}
       </div>
     );
@@ -182,39 +230,41 @@ const Chat = () => {
       <IonContent fullscreen>
         <div className="flex flex-col flex-1 h-full">
           <div className="z-20 flex flex-grow-0 flex-shrink-0 w-full bg-light-default text-dark-default border-b border-light-tint">
-            <button className="flex self-center p-2 rounded-full focus:outline-none hover:bg-light-tint text-2xl" onClick={() => history.goBack()}>
+            <button className="flex self-center p-2 rounded-full focus:outline-none hover:bg-light-tint text-2xl" onClick={() => history.replace("/overview")}>
               <IonIcon icon={arrowBackSharp} className="w-6 h-6 fill-current" />
             </button>
-            <div
+            <CachedIMG
               className="w-12 h-12 mx-4 my-2 bg-blue-500 bg-center bg-no-repeat bg-cover rounded-full cursor-pointer"
-              style={{
-                backgroundImage:
-                  "url('https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?ixlib=rb-1.2.1&amp;ixid=eyJhcHBfaWQiOjEyMDd9&amp;auto=format&amp;fit=crop&amp;w=200&amp;q=50')",
-              }}></div>
+              src="/assets/icon/user.png"
+              fetchSrc={getAvatarURL}
+              alt="avatar"
+              rerender={avatarURL}
+            />
             <div className="flex flex-col justify-center flex-1 overflow-hidden cursor-pointer">
               <div className={"overflow-hidden font-medium leading-tight whitespace-no-wrap " + (!isOnline && typing.length == 0 ? "" : "text-lg")}>{name}</div>
               <div className="overflow-hidden text-sm font-medium leading-tight whitespace-no-wrap">
                 <SubHeader isGroup={isGroup} typing={typing} isOnline={isOnline} />
               </div>
             </div>
-            <button className="flex self-center p-2 ml-2 rounded-full focus:outline-none text-dark-default hover:bg-light-tint">
+            <button className="flex self-center p-2 mx-2 rounded-full focus:outline-none text-dark-default hover:bg-light-tint">
               <IonIcon icon={search} className="w-6 h-6 fill-current" />
             </button>
-            <button type="button" className="flex self-center p-2 ml-2 mr-1 rounded-full md:block focus:outline-none text-dark-default hover:bg-light-tint">
-              <IonIcon icon={ellipsisVertical} className="w-6 h-6 fill-current" />
-            </button>
           </div>
-          <div className="h-full overflow-auto">
-            <div className="top-0 bottom-0 left-0 right-0 flex flex-col flex-1 bg-transparent bg-bottom bg-cover">
-              <div className="self-center flex-1 w-full max-w-xl">
-                <div className="relative flex flex-col px-3 py-1 m-auto">
-                  <InfiniteScroll loadMore={fetchMessages} hasMore={true} loader={<h4 key={"scroll-" + messages.length}>Loading...</h4>} isReverse={true}>
-                    {messages.length > 0 &&
-                      messages.map(msg => {
-                        return printMessage(msg);
-                      })}
-                  </InfiniteScroll>
-                </div>
+          <div className="h-full w-full overflow-auto flex flex-col-reverse self-center relative max-w-xl" ref={containerRef}>
+            <div className="overflow-auto flex flex-col-reverse">
+              {messages.length > 0 &&
+                messages
+                  .slice(0)
+                  .reverse()
+                  .map(msg => {
+                    return (
+                      <div key={msg.getId()} className="flex-auto px-3 w-100 h-100">
+                        {printMessage(msg)}
+                      </div>
+                    );
+                  })}
+              <div ref={ref} className="flex-auto">
+                {isLoading && <IonIcon icon={refresh} className="text-4xl m-auto w-full my-3 text-dark-default" />}
               </div>
             </div>
           </div>

@@ -3,7 +3,7 @@ import {useHistory} from "react-router-dom";
 
 import {IonContent, IonPage, IonIcon, IonAlert} from "@ionic/react";
 
-const Devices = ({children, title, icon, transparent, absolute, onScroll}) => {
+const Devices = ({children, title, icon, transparent, absolute, onScroll, parentPage}) => {
   const scrollContent = useRef();
   const history = useHistory();
 
@@ -40,7 +40,7 @@ const Devices = ({children, title, icon, transparent, absolute, onScroll}) => {
               (absolute ? " absolute" : "") +
               (transparent ? "" : " bg-light-default border-b border-light-tint")
             }>
-            <button className="flex self-center p-2 rounded-full focus:outline-none hover:bg-light-tint text-2xl" onClick={history.goBack}>
+            <button className="flex self-center p-2 rounded-full focus:outline-none hover:bg-light-tint text-2xl" onClick={() => history.replace(parentPage)}>
               <IonIcon icon={icon} className="w-6 h-6 fill-current" />
             </button>
             <div className="flex self-center items-center h-full w-full ml-3">
