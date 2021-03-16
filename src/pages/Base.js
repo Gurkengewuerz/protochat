@@ -3,7 +3,7 @@ import {useHistory} from "react-router-dom";
 
 import {IonContent, IonPage, IonIcon, IonAlert} from "@ionic/react";
 
-const Devices = ({children, title, icon, transparent, absolute, onScroll, parentPage}) => {
+const Base = ({children, title, icon, transparent, absolute, onScroll, parentPage}) => {
   const scrollContent = useRef();
   const history = useHistory();
 
@@ -56,4 +56,4 @@ const Devices = ({children, title, icon, transparent, absolute, onScroll, parent
   );
 };
 
-export default Devices;
+export default Base;

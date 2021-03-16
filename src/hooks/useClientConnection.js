@@ -11,7 +11,18 @@ const useClientConnection = () => {
   const [client, setClient] = useState(null);
   const [eventsSet, setEventsSet] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
-  const [username, setUsername] = useState("");
+  const [currentUser, setCurrentUser] = useState({
+    username: undefined,
+    avatar: undefined,
+    userID: undefined,
+    deviceID: undefined,
+    displayName: undefined,
+  });
+
+  const setCurrentUserData = (key, val) => {
+    currentUser[key] = val;
+    setCurrentUser(currentUser);
+  };
 
   const disconnect = useCallback(() => {
     if (client != null) client.stopClient();
@@ -57,63 +68,73 @@ const useClientConnection = () => {
     setClient(Matrix.createClient(clientData));
   }, []);
 
+  const addEvents = () => {
+    if (client === null) return;
+    setEventsSet(true);
+    client.on("event", event => {
+      console.log(event.getType(), event);
+    });
+
+    client.on("Room", () => {
+      emitCustomEvent("roomUpdate");
+    });
+
+    client.on("RoomMember.typing", (data, member) => {
+      emitCustomEvent("typing", member);
+    });
+
+    client.on("RoomState.members", event => {
+      if ("avatar_url" in event.getContent()) emitCustomEvent("avatarChange", event);
+    });
+
+    client.on("Room.timeline", (event, room, toStartOfTimeline) => {
+      if (toStartOfTimeline) return;
+      emitCustomEvent("message", {event, room});
+    });
+
+    client.on("User.presence", function (event, user) {
+      emitCustomEvent("userPresence", user);
+    });
+
+    client.on("Event.decrypted", event => {
+      if (event.getType() === "m.room.message") {
+        console.log(event.getContent().body);
+      } else {
+        console.log("decrypted an event of type", event.getType());
+        console.log(event);
+      }
+    });
+  };
+
   useEffect(() => {
     if (client !== null && !eventsSet) {
-      setEventsSet(true);
-      client.on("event", event => {
-        console.log(event.getType(), event);
-      });
-
       client.on("sync", (state, prevState, data) => {
-        // TODO: add currentUser to Context => Object with prefetched data like userID, name, avatar etc
+        const {avatar, userID, deviceID, displayName} = currentUser;
+        const me = client.getUser(client.getUserId());
+        if (me !== undefined || me !== null) {
+          if (userID === undefined || userID === null) setCurrentUserData("userID", client.getUserId());
+          if (deviceID === undefined || deviceID === null) setCurrentUserData("deviceID", client.getDeviceId());
+          if (avatar === undefined || avatar === null) setCurrentUserData("avatar", me.avatarUrl);
+          if (displayName === undefined || displayName === null) setCurrentUserData("displayName", me.displayName || undefined);
+        }
+
         switch (state) {
           case "PREPARED":
             setIsConnected(true);
-            emitCustomEvent("sync");
-            client.setDeviceDetails(client.getDeviceId(), {display_name: `${AppConfig.name} ${capitalize(Capacitor.platform)}`});
+            client
+              .getDevices()
+              .then(r => {
+                const currentDevice = r.devices.filter(device => device.device_id === client.getDeviceId());
+                if (currentDevice.length === 0) console.warn("Couldn't find current Device");
+                if (currentDevice[0].display_name !== null) return;
+                console.log("set display name for device");
+                client.setDeviceDetails(client.getDeviceId(), {display_name: `${AppConfig.name} ${capitalize(Capacitor.platform)}`});
+              })
+              .catch(err => console.error);
+            addEvents();
             break;
         }
       });
-
-      client.on("Room", () => {
-        emitCustomEvent("roomUpdate");
-      });
-
-      client.on("RoomMember.typing", (data, member) => {
-        emitCustomEvent("typing", member);
-      });
-
-      client.on("RoomState.members", (event) => {
-        if ("avatar_url" in event.getContent()) emitCustomEvent("avatarChange", event);
-      });
-
-      client.on("Room.timeline", (event, room, toStartOfTimeline) => {
-        if (toStartOfTimeline) return;
-        emitCustomEvent("message", {event, room});
-      });
-
-      client.on("Event.decrypted", event => {
-        if (event.getType() === "m.room.message") {
-          console.log(event.getContent().body);
-        } else {
-          console.log("decrypted an event of type", event.getType());
-          console.log(event);
-        }
-      });
-
-      /*client.on("roommember.membership", async (event, member) => {
-          if (
-            member.membership === "invite" &&
-            member.userId === matrixClient.getUserId()
-          ) {
-            await client.joinRoom(member.roomId);
-            // setting up of room encryption seems to be triggered automatically
-            // but if we don't wait for it the first messages we send are unencrypted
-            await client.setRoomEncryption(member.roomId, {
-              algorithm: "m.megolm.v1.aes-sha2",
-            });
-          }
-        });*/
     }
   }, [client, eventsSet]);
 
@@ -122,8 +143,8 @@ const useClientConnection = () => {
     client,
     disconnect,
     connect,
-    username,
-    setUsername,
+    currentUser,
+    setCurrentUserData,
   };
 };
 

@@ -39,10 +39,6 @@ const ChatOverview = () => {
     updateRooms();
   });
 
-  useCustomEventListener("sync", () => {
-    updateRooms();
-  });
-
   useCustomEventListener("typing", () => {
     updateRooms();
   });
@@ -151,7 +147,7 @@ const ChatOverview = () => {
           </div>
           <div className="fixed absolute bottom-0 right-0 z-40 mb-6 mr-4">
             <button className="flex items-center justify-center w-12 h-12 mr-3 text-xl font-semibold text-primary-contrast bg-primary-default rounded-full focus:outline-none flex-no-shrink">
-              <IonIcon icon={pencil} className="w-6 h-6 fill-current" />
+              <IonIcon icon={chatbubbles} className="w-6 h-6 fill-current" />
             </button>
           </div>
         </div>

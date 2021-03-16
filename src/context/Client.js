@@ -5,8 +5,8 @@ export const DefaultClientConnection = {
   client: null,
   isConnected: false,
   connect: data => {},
-  setUsername: name => {},
-  username: "",
+  currentUser: {},
+  setCurrentUserData: (key, val) => {},
 };
 
 const ClientConnection = React.createContext(DefaultClientConnection);

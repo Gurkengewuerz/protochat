@@ -13,7 +13,9 @@ import AppConfig from "../AppConfig";
 import logo from "../assets/logo.png";
 import AboutAlert from "../components/AboutAlert";
 import Button from "../components/Button";
+import FlowControl from "../components/Flow";
 import Input from "../components/Input";
+import Loader from "../components/Loader";
 import ClientConnection from "../context/Client";
 
 const {Keyboard, Storage, Browser} = Plugins;
@@ -25,22 +27,22 @@ const LoginStep = {
 };
 
 const Login = () => {
-  const Connection = useContext(ClientConnection);
-  const {connect, client, disconnect} = Connection;
+  const {connect, client, disconnect, currentUser, setCurrentUserData} = useContext(ClientConnection);
   const alert = useAlert();
   const history = useHistory();
+
   const [homeserver, setHomeserver] = useState("matrix.org");
   const [url, setURL] = useState("");
   const [step, setStep] = useState(LoginStep.HOMESERVER);
   const [usernameError, setUsernameError] = useState("");
   const [passwordError, setPasswordError] = useState("");
-  const [username, setUsername] = useState(Connection.username);
+  const [username, setUsername] = useState(currentUser.username || "");
   const [password, setPassword] = useState("");
-  const [registerStage, setRegisterStage] = useState("");
-  const [sessionID, setSessionID] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
   const [keyboardShown, setKeyboardShown] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
 
   if (Capacitor.platform !== "web") {
     Keyboard.addListener("keyboardDidShow", info => {
@@ -95,32 +97,30 @@ const Login = () => {
     };
 
     if (client !== null && step == LoginStep.HOMESERVER) {
-      if (client.isLoggedIn()) {
-        history.replace("/overview");
-        return;
-      }
+      setIsLoading(true);
 
       client
         .isUsernameAvailable("ping")
-        .then(response => {
-          success();
-        })
+        .then(success)
         .catch(err => {
+          console.log(err.name, err);
+
           if (err.name === "M_USER_IN_USE") {
             success();
             return;
           }
           disconnect();
-          alert.show("Homeserver is not availaible", {
+          alert.show(err.message, {
             type: "error",
           });
-          console.log(err);
-        });
+        })
+        .finally(() => setIsLoading(false));
     }
   }, [client, step]);
 
   const checkUsername = e => {
     e.preventDefault();
+    setIsLoading(true);
     console.log(`testing if user ${username} exists`);
     client
       .isUsernameAvailable(username)
@@ -129,10 +129,25 @@ const Login = () => {
       })
       .catch(err => {
         setUsernameError(err.message);
-      });
+      })
+      .finally(() => setIsLoading(false));
   };
 
-  const register = (e, recursive = false) => {
+  const doRegister = async data => {
+    if (data === undefined) return;
+    console.log(data);
+    const {session, password, username, type} = data;
+    try {
+      await client.register(username, password, session, session ? {session, type} : {});
+      console.log("registration successfull", data.user_id);
+      setPassword("");
+      setStep(LoginStep.LOGIN);
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const register = e => {
     if (e !== null && e !== undefined) e.preventDefault();
     if (!password) {
       alert.show("Please specify a password!", {
@@ -141,42 +156,12 @@ const Login = () => {
       return;
     }
     console.log(`trying to register at ${homeserver}`);
-    const authData = {session: sessionID};
-    if (!registerStage) authData["type"] = "m.login.dummy";
-    client
-      .register(username, password, sessionID, authData)
-      .then(response => {
-        console.log("registration successfull", response.user_id);
-        setRegisterStage("");
-        setPassword("");
-        setStep(LoginStep.LOGIN);
-      })
-      .catch(err => {
-        console.log({...err});
-        const localSessionID = err.data.session;
-        setSessionID(localSessionID);
-        let flowStage = "";
-        const flows = Object.keys(err.data.params);
-        for (let i = 0; i < flows.length; i++) {
-          const key = flows[i];
-          console.log(key, err.data.completed, !err.data.completed, !(key in err.data.completed));
-          if (!err.data.completed || !err.data.completed.includes(key)) {
-            flowStage = key;
-            break;
-          }
-        }
-        setRegisterStage(flowStage);
-
-        if (flowStage) {
-          Browser.open({
-            url: client.getFallbackAuthUrl(flowStage, localSessionID),
-          });
-        } else if (!recursive) register(undefined, true);
-      });
+    setIsRegistering(true);
   };
 
   const login = e => {
     e.preventDefault();
+    setIsLoading(true);
     console.log(`trying to login to ${homeserver}`);
     client
       .login("m.login.password", {
@@ -185,14 +170,15 @@ const Login = () => {
       })
       .then(response => {
         console.log("got Access Token", response.access_token);
-        Connection.setUsername(username);
+        setCurrentUserData("username", username);
         response.username = username;
         saveSessionData(response);
         client.initCrypto();
-        client.startClient({pollTimeout: AppConfig.clientTimeout});
+        client.startClient({pollTimeout: AppConfig.clientTimeout, initialSyncLimit: AppConfig.syncLimit});
         history.replace("/overview");
       })
       .catch(err => {
+        setIsLoading(false);
         alert.show(err.message, {
           type: "error",
         });
@@ -223,34 +209,13 @@ const Login = () => {
     ),
     style => (
       <animated.div style={{...style}}>
-        <IonAlert
-          isOpen={registerStage !== ""}
-          message={"Please follow the steps on the page and press next."}
-          buttons={[
-            {
-              text: "Cancel",
-              handler: () => {
-                setRegisterStage("");
-                setSessionID("");
-              },
-            },
-            {
-              text: "Okay",
-              handler: () => {
-                register();
-                return false;
-              },
-            },
-          ]}
-        />
         <Input
           value={username}
           onChange={e => {
             setUsername(e.target.value.toLowerCase());
-            setUsernameError("");
-            setShowPassword(false);
-            setRegisterStage("");
-            setSessionID("");
+            if (usernameError) setUsernameError("");
+            if (isRegistering) setIsRegistering(false);
+            if (showPassword) setShowPassword(false);
           }}
           placeholder="Username"
           error={usernameError}
@@ -268,6 +233,7 @@ const Login = () => {
             className="mt-3 text-primary-default underline hover:no-underline"
             onClick={e => {
               e.preventDefault();
+              if (isRegistering) setIsRegistering(false);
               setStep(LoginStep.LOGIN);
             }}
             to="#x">
@@ -300,10 +266,10 @@ const Login = () => {
     }
     if (step === LoginStep.USERNAME) setStep(LoginStep.HOMESERVER);
     if (step === LoginStep.LOGIN) setStep(LoginStep.USERNAME);
-    setSessionID("");
     setUsernameError("");
     setPasswordError("");
-    setShowPassword(false);
+    if (showPassword) setShowPassword(false);
+    if (isRegistering) setIsRegistering(false);
   };
 
   return (
@@ -352,6 +318,8 @@ const Login = () => {
             </div>
           </footer>
         </div>
+        <FlowControl asyncFunc={doRegister} prePassword={password} preUsername={username} isActive={isRegistering} />
+        <Loader isOpen={isLoading} />
       </IonContent>
     </IonPage>
   );

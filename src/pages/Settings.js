@@ -28,6 +28,7 @@ import {userConfig, setUserConfig} from "../App";
 import AppConfig from "../AppConfig";
 import AboutAlert from "../components/AboutAlert";
 import CachedIMG from "../components/CachedIMG";
+import FlowControl from "../components/Flow";
 import Loader from "../components/Loader";
 import ClientConnection from "../context/Client";
 import Base from "./Base";
@@ -43,37 +44,23 @@ const Chat = () => {
   const [transparentHeader, setTransparentHeader] = useState(true);
   const [aboutVisible, setAboutVisible] = useState(false);
   const [deactivateAccount, setDeactivateAccount] = useState(false);
-  const [passwordAlertVisible, setPasswordAlertVisible] = useState(false);
+  const [newPasswordFlow, setNewPasswordFlow] = useState(false);
+  const [newPassword, setNewPassword] = useState();
   const [newPasswordAlertVisible, setNewPasswordAlertVisible] = useState(false);
-
-  const [avatarURL, setAvatarURL] = useState("");
-  const [sessionID, setSessionID] = useState("");
-  const [authAlertData, setAuthAlertData] = useState({});
 
   var imgButtonCnt = 0;
   const [isLoading, setIsLoading] = useState(false);
 
-  const [displayname, setDisplayname] = useState("");
   const [changeDisplayname, setChangeDisplayname] = useState(false);
 
-  const {connect, client, disconnect, isConnected, username} = useContext(ClientConnection);
+  const {client, disconnect, setCurrentUserData, currentUser} = useContext(ClientConnection);
 
   var nextAuthStep = undefined;
 
-  useEffect(() => {
-    const x = async () => {
-      const user = client.getUser(client.getUserId());
-      console.log(user);
-      setDisplayname(user.displayName);
-
-      setAvatarURL(user.avatarUrl);
-    };
-
-    if (isConnected) x();
-  }, [isConnected]);
-
   const getAvatarURL = async () => {
-    return avatarURL === null ? null : client.mxcUrlToHttp(avatarURL, 256, 256, "scale", false);
+    return currentUser.avatar === null
+      ? null
+      : client.mxcUrlToHttp(currentUser.avatar, AppConfig.avatarHeight, AppConfig.avatarWidth, AppConfig.avatarType, false);
   };
 
   const onScroll = scrollTop => {
@@ -124,7 +111,7 @@ const Chat = () => {
           alert.show("Avatar upload success", {
             type: "error",
           });
-          setAvatarURL(upload);
+          setCurrentUserData("avatar", upload);
           return;
         }
 
@@ -142,6 +129,7 @@ const Chat = () => {
   };
 
   const deleteStorage = () => {
+    setIsLoading(false);
     Storage.remove({key: "data"});
     if (client !== null) client.store.deleteAllData();
     //client.cryptoStore.deleteAllData();
@@ -151,11 +139,13 @@ const Chat = () => {
 
   const logout = () => {
     if (client === null) return;
+    setIsLoading(true);
     client
       .logout()
       .then(deleteStorage)
       .catch(e => {
         console.error(e);
+        setIsLoading(false);
         alert.show("Failed to logout!", {
           type: "error",
         });
@@ -163,10 +153,12 @@ const Chat = () => {
   };
 
   const disableAccount = () => {
+    setIsLoading(true);
     client
       .deactivateAccount({}, true)
       .then(deleteStorage)
       .catch(e => {
+        setIsLoading(false);
         console.log(e);
       });
   };
@@ -184,8 +176,10 @@ const Chat = () => {
   };
 
   const setDisplayNameFnc = alertData => {
+    setIsLoading(true);
     client.setDisplayName(alertData.displayname, (err, data) => {
-      if (err === null) setDisplayname(alertData.displayname);
+      setIsLoading(false);
+      if (err === null) setCurrentUserData("displayName", alertData.displayname);
       else {
         alert.show("Failed to set new displayname!", {
           type: "error",
@@ -194,46 +188,14 @@ const Chat = () => {
     });
   };
 
-  const setPassword = alertData => {
-    client.login(
-      "m.login.password",
-      {
-        user: username,
-        password: alertData.password,
-        session: sessionID,
-      },
-      (err, data) => {
-        if (err !== null) {
-          alert.show(err.message, {
-            type: "error",
-          });
-          return;
-        }
-
-        nextAuthStep(authAlertData);
-      }
-    );
-  };
-
-  const setNewPassword = alertData => {
-    setAuthAlertData({...alertData});
-    client.setPassword({session: sessionID}, alertData.newPassword, (err, data) => {
-      if (err === null) {
-        alert.show("Password change successfull", {
-          type: "success",
-        });
-        return;
-      }
-      if (err.data.flows[0].stages.length > 1 || err.data.flows[0].stages[0] !== "m.login.password")
-        alert.show("Failed to update the password!", {
-          type: "error",
-        });
-      else {
-        nextAuthStep = setNewPassword;
-        setSessionID(err.data.session);
-        setPasswordAlertVisible(true);
-      }
+  const doNewPassword = async data => {
+    if (data === undefined) return;
+    const {session, type} = data;
+    await client.setPassword(session ? {session, type} : {}, newPassword);
+    alert.show("Password change successfull", {
+      type: "success",
     });
+    setNewPasswordFlow(false);
   };
 
   const Heading = ({children}) => {
@@ -267,7 +229,7 @@ const Chat = () => {
     <>
       <Base title="Settings" icon={arrowBackSharp} absolute={true} transparent={transparentHeader} onScroll={onScroll} parentPage="/overview">
         <div className="m-auto h-80 my-2 relative">
-          <CachedIMG className="h-full m-auto" src="/assets/icon/user.png" fetchSrc={getAvatarURL} alt="avatar" imgRef={imgRef} rerender={avatarURL} />
+          <CachedIMG className="h-full m-auto" src="/assets/icon/user.png" fetchSrc={getAvatarURL} alt="avatar" imgRef={imgRef} rerender={currentUser.avatar} />
           <button
             className="absolute right-1.5 bottom-1.5 w-10 h-10 rounded-full focus:outline-none focus:shadow-outline inline-flex p-2 shadow bg-primary-default"
             onClick={() => {
@@ -298,7 +260,7 @@ const Chat = () => {
 
         <Spacer />
         <Heading>Account</Heading>
-        <SettingButton onClick={() => setChangeDisplayname(true)} icon={happy} value={displayname}>
+        <SettingButton onClick={() => setChangeDisplayname(true)} icon={happy} value={currentUser.displayName}>
           Change displayname
         </SettingButton>
         <SettingButton onClick={() => history.push("/devices")} icon={desktop}>
@@ -308,10 +270,7 @@ const Chat = () => {
           Ignored user
         </SettingButton>
         <SettingButton
-          onClick={() => {
-            setNewPasswordAlertVisible(true);
-            setSessionID("");
-          }}
+          onClick={() => setNewPasswordAlertVisible(true)}
           icon={key}>
           Change passwords
         </SettingButton>
@@ -382,7 +341,7 @@ const Chat = () => {
           {
             name: "displayname",
             type: "text",
-            value: displayname,
+            value: currentUser.displayName,
           },
         ]}
         buttons={[
@@ -414,29 +373,11 @@ const Chat = () => {
           },
           {
             text: "Ok",
-            handler: setNewPassword,
-          },
-        ]}
-      />
-
-      <IonAlert
-        isOpen={passwordAlertVisible}
-        onDidDismiss={() => setPasswordAlertVisible(false)}
-        header={"Current password"}
-        inputs={[
-          {
-            name: "password",
-            type: "password",
-          },
-        ]}
-        buttons={[
-          {
-            text: "Cancel",
-            role: "cancel",
-          },
-          {
-            text: "Ok",
-            handler: setPassword,
+            handler: alertData => {
+              setNewPassword(alertData.newPassword);
+              setNewPasswordFlow(true);
+              return true;
+            },
           },
         ]}
       />
@@ -457,6 +398,7 @@ const Chat = () => {
           },
         ]}
       />
+      <FlowControl asyncFunc={doNewPassword} isActive={newPasswordFlow} />
       <Loader isOpen={isLoading} />
     </>
   );

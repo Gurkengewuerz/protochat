@@ -7,13 +7,13 @@ import Rooms from "../components/Rooms";
 import ClientConnection from "../context/Client";
 import Base from "./Base";
 
-const Devices = () => {
+const Archive = () => {
   const alert = useAlert();
 
   const [rooms, setRooms] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const {connect, client, disconnect, isConnected, username} = useContext(ClientConnection);
+  const {client, isConnected} = useContext(ClientConnection);
 
   const fetchRooms = async () => {
     try {
@@ -51,4 +51,4 @@ const Devices = () => {
   );
 };
 
-export default Devices;
+export default Archive;

@@ -23,7 +23,7 @@ import useClientConnection from "./hooks/useClientConnection";
 import Archive from "./pages/Archive";
 import Chat from "./pages/Chat";
 import ChatOverview from "./pages/ChatOverview";
-import Devices from "./pages/Devices";
+import DeviceSettings from "./pages/DeviceSettings";
 import Login from "./pages/Login";
 import Settings from "./pages/Settings";
 import "./tailwindcss/base.css";
@@ -48,6 +48,8 @@ export let userConfig;
 export let setUserConfig;
 
 const App = () => {
+  // TODO: Implement CI Bilds
+  // Biometrie Security um Chats o.ä. Zu sichern
   const clientConnector = useClientConnection();
   const [loggedin, setLoggedin] = useState("");
   const [storageData, setStorageData] = useState({});
@@ -114,7 +116,7 @@ const App = () => {
       if (data.value !== null) {
         const parsedData = JSON.parse(data.value);
         setStorageData(parsedData);
-        clientConnector.setUsername(parsedData.username);
+        clientConnector.setCurrentUserData("username", parsedData.username);
         clientConnector.connect({
           baseUrl: parsedData["well_known"]["m.homeserver"]["base_url"],
           userId: parsedData["user_id"],
@@ -140,7 +142,7 @@ const App = () => {
     if (clientConnector.client !== null && Object.keys(storageData).length > 0) {
       setStorageData("");
       clientConnector.client.initCrypto();
-      clientConnector.client.startClient({pollTimeout: AppConfig.clientTimeout, includeArchivedRooms: true});
+      clientConnector.client.startClient({pollTimeout: AppConfig.clientTimeout, includeArchivedRooms: true, initialSyncLimit: AppConfig.syncLimit});
       if (clientConnector.client.isLoggedIn()) {
         console.log("user already logged in");
         setLoggedin("true");
@@ -164,7 +166,7 @@ const App = () => {
               <ChatOverview />
             </Route>
             <Route exact path="/devices">
-              <Devices />
+              <DeviceSettings />
             </Route>
             <Route exact path="/archive">
               <Archive />

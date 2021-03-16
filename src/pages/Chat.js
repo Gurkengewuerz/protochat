@@ -1,18 +1,24 @@
-import {arrowBackSharp, search, refresh} from "ionicons/icons";
+import {arrowBackSharp, search, refresh, arrowUp, caretDown} from "ionicons/icons";
 import moment from "moment";
 import React, {useState, useEffect, useContext, useRef} from "react";
 import {useAlert} from "react-alert";
 import {useCustomEventListener} from "react-custom-events";
 import {useHistory, useParams} from "react-router-dom";
 import ScrollToBottom, {useScrollToBottom, useSticky} from "react-scroll-to-bottom";
+import SwipeableViews from "react-swipeable-views";
 import useInfiniteScroll from "react-use-infinite-loading";
 
 import {IonContent, IonPage, IonIcon} from "@ionic/react";
 
+import {Plugins, HapticsImpactStyle, Capacitor} from "@capacitor/core";
+
 import AppConfig from "../AppConfig";
 import CachedIMG from "../components/CachedIMG";
+import Loader from "../components/Loader";
 import ClientConnection from "../context/Client";
 import DateFormatter from "../utils/DateFormatter";
+
+const {Haptics} = Plugins;
 
 const SubHeader = ({isGroup, isOnline, typing}) => {
   if (typing.length > 0) {
@@ -33,7 +39,8 @@ const Chat = () => {
   const history = useHistory();
   const alert = useAlert();
 
-  // TODO: implement ScrollToBottom
+  const scrollToBottom = useScrollToBottom();
+  const [sticky] = useSticky();
 
   const [name, setName] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -43,9 +50,13 @@ const Chat = () => {
   const [firstInit, setFirstInit] = useState();
   const [typing, setTyping] = useState([]); // m.typing
 
+  const [replyTo, setReplyTo] = useState("");
+
+  const [messagesLoading, setMessagesLoading] = useState(true);
+
   const [avatarURL, setAvatarURL] = useState(undefined);
 
-  const {connect, client, disconnect, isConnected} = useContext(ClientConnection);
+  const {client, isConnected} = useContext(ClientConnection);
 
   useEffect(() => {
     const x = async () => {
@@ -56,34 +67,51 @@ const Chat = () => {
         return;
       }
 
-      const room = client.getRoom(id);
-      if (room === null) {
+      const currentRoom = client.getRoom(id);
+      if (currentRoom === null) {
         console.log("current chat room does not exists");
         history.replace("/overview");
         return;
       }
 
-      console.log("current chat room", room);
+      const isGroup = currentRoom.currentState.getMembers() > 2;
+      setIsGroup(isGroup);
+      setName(currentRoom.name);
 
       let typingList = [];
       let memberList = {};
       let otherUser = {};
-      room.currentState.getMembers().forEach(member => {
+      currentRoom.currentState.getMembers().forEach(member => {
         if (member.typing) typingList.push(member.userId);
         if (member.userId === client.getUserId()) return;
         otherUser = member;
         memberList[member.userId] = member.rawDisplayName;
       });
-      const isGroup = room.currentState.getMembers() > 2;
-      setIsGroup(isGroup);
-      setMessages([...room.timeline]);
-      setName(room.name);
+      // TODO: If not is Group get other User client.getUser(otherUser.userId) => react on presence and get lastPresenceTs
       setMembers(memberList);
       setAvatarURL(
-        await (isGroup ? room : otherUser).getAvatarUrl(client.getHomeserverUrl(), AppConfig.avatarHeight, AppConfig.avatarWidth, AppConfig.avatarType, false)
+        await (isGroup ? currentRoom : otherUser).getAvatarUrl(
+          client.getHomeserverUrl(),
+          AppConfig.avatarHeight,
+          AppConfig.avatarWidth,
+          AppConfig.avatarType,
+          false
+        )
       );
-    };
 
+      client.scrollback(currentRoom, 5, async (err, room) => {
+        console.log("current chat room", room);
+
+        if (err) {
+          setMessages([...currentRoom.timeline]);
+          setMessagesLoading(false);
+          return;
+        }
+
+        setMessages([...room.timeline]);
+        setMessagesLoading(false);
+      });
+    };
     if (isConnected) x();
   }, [isConnected]);
 
@@ -119,7 +147,8 @@ const Chat = () => {
         resolve();
         return;
       }
-      client.scrollback(room, 5, (err, newRoom) => {
+      console.log("---------------- fetchMessages ----------------");
+      client.scrollback(room, 15, (err, newRoom) => {
         if (err === null) {
           setMessages([...newRoom.timeline]);
           resolve();
@@ -134,8 +163,8 @@ const Chat = () => {
 
   const [ref, containerRef, isLoading] = useInfiniteScroll({
     hasMore: true, // if server-side has more items for us
-    offset: 100, // send request 100px before the end of scrolling container
-    direction: "bottom", // scroll direction
+    offset: 200, // send request 100px before the end of scrolling container
+    direction: "top", // scroll direction
     callback: fetchMessages, // api request
   });
 
@@ -145,11 +174,12 @@ const Chat = () => {
     setFirstInit(moment());
   }, [messages]);
 
-  const printMessage = (data, firstInit = true) => {
+  const printMessage = data => {
     const type = data.getType().toLowerCase();
     const ts = data.getTs();
     const sender = data.getSender();
     const content = data.getContent();
+    const eventID = data.getId();
 
     const isMe = sender === client.getUserId();
     let systemMessage = "";
@@ -205,16 +235,37 @@ const Chat = () => {
             break;
         }
         return (
-          <div className={"min-w-min max-w-sm my-2 " + (isMe ? "self-end" : "self-start")}>
-            <div
-              className={"p-4 text-sm rounded-t-lg shadow border-light-shade bg-light-default text-dark-default " + (isMe ? "rounded-l-lg" : "rounded-r-lg")}>
-              <div className="flex">
-                <div className="flex-auto">{sender}</div>
-                <div className="flex-auto">{DateFormatter.message(ts)}</div>
+          <SwipeableViews
+            enableMouseEvents
+            index={1}
+            hysteresis={1.1}
+            onSwitching={(index, type) => {
+              if (type !== "move") return;
+              if (index < 0.5 && replyTo === "") {
+                console.log("start", index, replyTo);
+                setReplyTo(eventID);
+                if (Capacitor.platform !== "web") Haptics.selectionStart();
+                // TODO: Implement Reply
+              }
+
+              if (index > 0.5 && replyTo) {
+                console.log("end", index, replyTo);
+                setReplyTo("");
+                if (Capacitor.platform !== "web") Haptics.selectionEnd();
+              }
+            }}>
+            <div className="w-40 h-8"></div>
+            <div className={"min-w-min max-w-sm my-2 " + (isMe ? "self-end" : "self-start")}>
+              <div
+                className={"p-4 text-sm rounded-t-lg shadow border-light-shade bg-light-default text-dark-default " + (isMe ? "rounded-l-lg" : "rounded-r-lg")}>
+                <div className="flex">
+                  <div className="flex-auto">{sender}</div>
+                  <div className="flex-auto">{DateFormatter.message(ts)}</div>
+                </div>
+                {message}
               </div>
-              {message}
             </div>
-          </div>
+          </SwipeableViews>
         );
     }
 
@@ -263,10 +314,15 @@ const Chat = () => {
                       </div>
                     );
                   })}
-              <div ref={ref} className="flex-auto">
+              <div ref={ref} className="flex-auto pt-5 mt-8">
                 {isLoading && <IonIcon icon={refresh} className="text-4xl m-auto w-full my-3 text-dark-default" />}
               </div>
             </div>
+          </div>
+          <div className="fixed absolute bottom-12 right-0 z-40 mb-6 mr-4">
+            <button className="flex items-center justify-center w-10 h-10 mr-3 rounded-full focus:outline-none flex-no-shrink bg-light-shade text-dark-default">
+              <IonIcon icon={caretDown} className="w-6 h-6 fill-current" />
+            </button>
           </div>
           <div className="relative flex items-center self-center w-full max-w-xl p-4 overflow-hidden text-gray-600 focus-within:text-gray-400">
             <div className="w-full">
@@ -289,6 +345,7 @@ const Chat = () => {
           </div>
         </div>
       </IonContent>
+      <Loader isOpen={messagesLoading} />
     </IonPage>
   );
 };
