@@ -4,7 +4,8 @@
   "description": "",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "rm -R build/ & webpack --config webpack.config.js",
+    "clean": "rm -R build/",
+    "build": "webpack --config webpack.config.js",
     "start": "webpack serve --mode development --open --hot --host 0.0.0.0 --config webpack.config.js",
     "ionic:sync": "ionic cap sync --no-build",
     "build:icons": "cordova-res android --copy --skip-config --resources public/assets/icon",

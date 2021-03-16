@@ -30,3 +30,6 @@ yarn-error.log*
 base.css
 components.css
 utilities.css
+
+.actrc
+act/
