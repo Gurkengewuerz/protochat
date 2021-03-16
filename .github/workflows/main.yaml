@@ -22,12 +22,11 @@ jobs:
       - run: npm run build:css
       - run: npm run build
       - run: npm run ionic:sync
-      - run: cd ./android
       - name: Build debug APK
-        run: bash ./android/gradlew assembleDebug --stacktrace
+        working-directory: ./android
+        run: bash ./gradlew assembleDebug --stacktrace
       - name: Upload APK
         uses: actions/upload-artifact@v2
         with:
           name: Protochat
-          path: app/**/*.apk
-      - run: cd ..
+          path: ./android/**/*.apk
