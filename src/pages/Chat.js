@@ -4,7 +4,6 @@ import React, {useState, useEffect, useContext, useRef} from "react";
 import {useAlert} from "react-alert";
 import {useCustomEventListener} from "react-custom-events";
 import {useHistory, useParams} from "react-router-dom";
-import ScrollToBottom, {useScrollToBottom, useSticky} from "react-scroll-to-bottom";
 import SwipeableViews from "react-swipeable-views";
 import useInfiniteScroll from "react-use-infinite-loading";
 
@@ -38,9 +37,6 @@ const Chat = () => {
   const {id} = useParams();
   const history = useHistory();
   const alert = useAlert();
-
-  const scrollToBottom = useScrollToBottom();
-  const [sticky] = useSticky();
 
   const [name, setName] = useState([]);
   const [messages, setMessages] = useState([]);
